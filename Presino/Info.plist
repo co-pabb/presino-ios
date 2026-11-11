@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>fa</string>
+	<key>CFBundleDisplayName</key><string>Presino</string>
+	<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key><true/>
+	<key>ITSAppUsesNonExemptEncryption</key><false/>
+	<key>UILaunchScreen</key><dict/>
+	<key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+	<key>UIStatusBarStyle</key><string>UIStatusBarStyleDefault</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array><string>UIInterfaceOrientationPortrait</string></array>
+	<key>UIBackgroundModes</key>
+	<array><string>location</string></array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>برای ثبت ورود و خروج در محدوده‌ی پروژه به موقعیت شما نیاز داریم.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>برای ثبت خودکار خروج هنگام ترک محدوده‌ی پروژه، حتی وقتی برنامه بسته است، موقعیت شما را در پس‌زمینه بررسی می‌کنیم. گزینه‌ی «Always» را انتخاب کنید.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>Attendance</key>
+		<string>برای ثبت دقیق ورود و خروج، موقعیت دقیق لازم است.</string>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>برای تأیید چهره هنگام ثبت ورود و خروج و ارسال عکس مدارک.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>برای پیوست کردن عکس و فایل به درخواست‌ها و گزارش‌ها.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>برای ورود سریع و امن با تشخیص چهره.</string>
+</dict>
+</plist>
