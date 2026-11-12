@@ -169,6 +169,7 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
             region.notifyOnEntry = true
             region.notifyOnExit = true
             mgr.startMonitoring(for: region)
+            mgr.requestState(for: region)   // اگر همین الان داخل محدوده‌ایم، iOS «خروج» بعدی را درست گزارش کند
         }
         ud.set(sig, forKey: K.sig)
     }
@@ -190,6 +191,11 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
                 self.scheduleExitCheck()
             }
         }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        // برگشتنِ کارمند به داخل محدوده، شمارش ۳۰ دقیقه را باطل می‌کند
+        if state == .inside, region.identifier.hasPrefix("p"), ud.double(forKey: K.exitAt) > 0 { clearExit() }
     }
 
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {

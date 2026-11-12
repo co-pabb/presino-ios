@@ -72,6 +72,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.shouldPerformDownload { decisionHandler(.download); return }   // دانلودِ blob/لینک download
         guard let url = navigationAction.request.url else { decisionHandler(.allow); return }
         let scheme = (url.scheme ?? "").lowercased()
         if ["http", "https", "about", "blob", "data", "file"].contains(scheme) {
