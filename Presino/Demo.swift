@@ -36,10 +36,20 @@ enum Demo {
             "stats": ["worked_days": 14, "worked_hours": 112, "requests_pending": 1,
                       "last_net": "۱۸,۵۰۰,۰۰۰", "last_net_label": "مهر ۱۴۰۵"] as JSON,
             "plan_today": [
-                ["kind": "task", "title": "بازدید از قالب‌بندی طبقه ۳", "sub": "پروژه: برج نگین", "badge": "10:30", "icon": "✅", "overdue": false] as JSON,
-                ["kind": "plan", "title": "تماس با تأمین‌کننده میلگرد", "sub": "تماس · 🔔 ۱۰ دقیقه قبل", "badge": "14:00", "icon": "📞", "overdue": false] as JSON,
-                ["kind": "task", "title": "ثبت گزارش روزانه", "sub": "پروژه: برج نگین · سررسید ۱۴۰۵/۰۸/۲۰", "badge": "عقب‌افتاده", "icon": "⏰", "overdue": true] as JSON,
+                ["kind": "task", "title": "بازدید از قالب‌بندی طبقه ۳", "sub": "پروژه: برج نگین", "time": "10:30", "badge": "10:30", "overdue": false] as JSON,
+                ["kind": "plan", "title": "تماس با تأمین‌کننده میلگرد", "sub": "تماس · 🔔 ۱۰ دقیقه قبل", "time": "14:00", "badge": "14:00", "overdue": false] as JSON,
+                ["kind": "task", "title": "ثبت گزارش روزانه", "sub": "پروژه: برج نگین", "time": "", "badge": "عقب‌افتاده", "overdue": true] as JSON,
             ],
+            "plan_tomorrow": [
+                ["kind": "task", "title": "تحویل مصالح", "sub": "پروژه: برج نگین", "time": "09:00", "badge": "09:00", "overdue": false] as JSON,
+            ],
+            "recent_requests": [
+                ["type": "leave", "title": "مرخصی", "status": "approved", "status_label": "تأیید شد", "sub": "1405/08/15"] as JSON,
+                ["type": "advance", "title": "مساعده", "status": "pending", "status_label": "در انتظار", "sub": "1405/08/20"] as JSON,
+            ],
+            "projects": [["id": 1, "name": "برج مسکونی نگین"] as JSON],
+            "today_readable": "پنجشنبه 21 آبان 1405",
+            "tasks_enabled": true,
             "unread_internal": 2,
             "notifications_unread": 3,
         ]
