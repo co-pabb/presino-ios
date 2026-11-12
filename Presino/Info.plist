@@ -19,7 +19,9 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array><string>UIInterfaceOrientationPortrait</string></array>
 	<key>UIBackgroundModes</key>
-	<array><string>location</string></array>
+	<array><string>location</string><string>fetch</string></array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array><string>ir.presino.app.refresh</string></array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>برای ثبت ورود و خروج در محدوده‌ی پروژه به موقعیت شما نیاز داریم.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

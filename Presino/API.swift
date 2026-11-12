@@ -8,6 +8,7 @@ struct APIResult {
 enum API {
     /// فراخوانی api_mobile با توکن؛ در قطعی شبکه nil برمی‌گرداند.
     static func call(_ path: String, method: String = "GET", body: [String: Any]? = nil) async -> APIResult? {
+        if Demo.on { return nil }
         guard let token = Session.token, let url = URL(string: Config.apiBase + path) else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = method

@@ -36,6 +36,39 @@ enum Keychain {
 enum Session {
     static var token: String? {
         get { Keychain.get("api_token") }
-        set { Keychain.set(newValue, for: "api_token") }
+        set {
+            Keychain.set(newValue, for: "api_token")
+            NotificationCenter.default.post(name: .presinoSession, object: nil)
+        }
+    }
+
+    /// نقش کاربر (employee یا یکی از نقش‌های مدیریتی)؛ خالی = هنوز مشخص نیست
+    static var role: String {
+        get { UserDefaults.standard.string(forKey: "session.role") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "session.role") }
+    }
+
+    static var userId: Int {
+        get { UserDefaults.standard.integer(forKey: "session.uid") }
+        set { UserDefaults.standard.set(newValue, forKey: "session.uid") }
+    }
+
+    static var isManager: Bool {
+        let r = role
+        return !r.isEmpty && r != "employee"
+    }
+
+    static var isEmployee: Bool { return role == "employee" }
+
+    /// خروج کامل: توکن، نقش، داده‌های ذخیره‌شده و صف آفلاین پاک می‌شوند
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: "session.role")
+        UserDefaults.standard.removeObject(forKey: "session.uid")
+        UserDefaults.standard.removeObject(forKey: "cache.home")
+        UserDefaults.standard.removeObject(forKey: "ns.last")
+        OfflineQueue.shared.clearAll()
+        RouteTracker.shared.reset()
+        ReminderService.clearAll()
+        token = nil
     }
 }

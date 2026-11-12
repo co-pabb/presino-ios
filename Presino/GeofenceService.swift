@@ -12,6 +12,12 @@ private enum K {
     static let askedAlways = "gf.askedAlways"
     static let askedNotif = "gf.askedNotif"
     static let needReload = "gf.needReload"
+    static let autoIn = "gf.autoIn"
+    static let noLogToday = "gf.noLogToday"
+    static let enterAt = "gf.enterAt"
+    static let enterProject = "gf.enterProject"
+    static let enterFence = "gf.enterFence"
+    static let enterTries = "gf.enterTries"
 }
 
 /// خروج خودکار (همان منطق اپ اندروید):
@@ -25,9 +31,11 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
     private let keepAlive = CLLocationManager()  // فقط برای زنده ماندن برنامه تا زمان بررسی خروج
     private let ud = UserDefaults.standard
 
-    private enum Purpose { case exit, enter, check }
+    private enum Purpose { case exit, enter, check, autoIn }
     private var pending: [Purpose] = []
     private var exitTimer: Timer?
+    private var enterTimer: Timer?
+    private var enterInFlight = false
     private var bg: UIBackgroundTaskIdentifier = .invalid
     private var checkInFlight = false
 
@@ -58,7 +66,7 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
 
     /// هنگام اجرای برنامه (و بیدار شدن در پس‌زمینه با رویداد موقعیت) و بعد از گرفتن توکن صدا زده می‌شود.
     func start() {
-        guard Session.token != nil else { return }
+        guard Session.token != nil, !Session.isManager, !Demo.on else { return }
         requestNotifAuthOnce()
         requestAuthIfNeeded()
         Task { await self.refresh() }
@@ -66,8 +74,9 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
     }
 
     func onForeground() {
-        guard Session.token != nil else { return }
+        guard Session.token != nil, !Session.isManager else { return }
         Task { await self.refresh() }
+        if ud.double(forKey: K.enterAt) > 0 { scheduleEnterCheck() }
         let at = ud.double(forKey: K.exitAt)
         if at > 0 {
             if Date().timeIntervalSince1970 - at > 12 * 3600 { clearExit() } else { scheduleExitCheck() }
@@ -84,7 +93,8 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
             for r in self.mgr.monitoredRegions { self.mgr.stopMonitoring(for: r) }
             self.mgr.stopMonitoringSignificantLocationChanges()
             self.clearExit()
-            for k in [K.autoOut, K.checkedIn, K.sig] { self.ud.removeObject(forKey: k) }
+            self.clearEnter()
+            for k in [K.autoOut, K.checkedIn, K.sig, K.autoIn, K.noLogToday] { self.ud.removeObject(forKey: k) }
         }
     }
 
@@ -109,7 +119,7 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
     private func requestNotifAuthOnce() {
         if ud.bool(forKey: K.askedNotif) { return }
         ud.set(true, forKey: K.askedNotif)
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -127,6 +137,8 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
         let autoOut = (emp["auto_checkout"] as? Bool) ?? false
         let bypass = (emp["bypass_location"] as? Bool) ?? false
         let checkedIn = (r.json["next_action"] as? String) == "check_out"
+        let autoIn = (emp["auto_checkin"] as? Bool) ?? false
+        let noLog = ((r.json["today_logs"] as? [Any]) ?? []).isEmpty
 
         var fences: [Fence] = []
         for p in (r.json["projects"] as? [[String: Any]] ?? []) {
@@ -141,13 +153,17 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
         await MainActor.run {
             self.ud.set(autoOut && !bypass, forKey: K.autoOut)
             self.ud.set(checkedIn, forKey: K.checkedIn)
+            // ورود خودکار فقط برای اولین ورودِ امروز (بعد از خروج دستی دوباره خودکار وارد نمی‌شود)
+            self.ud.set(autoIn && !bypass && noLog, forKey: K.autoIn)
+            self.ud.set(noLog, forKey: K.noLogToday)
+            if !noLog && self.ud.double(forKey: K.enterAt) > 0 { self.clearEnter() }
             if !checkedIn && self.ud.double(forKey: K.exitAt) > 0 { self.clearExit() }
             self.applyFences(fences)
         }
     }
 
     private func applyFences(_ fences: [Fence]) {
-        let want = ud.bool(forKey: K.autoOut)
+        let want = ud.bool(forKey: K.autoOut) || ud.bool(forKey: K.autoIn)
         let always = mgr.authorizationStatus == .authorizedAlways
         guard want, always, CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             for r in mgr.monitoredRegions { mgr.stopMonitoring(for: r) }
@@ -177,6 +193,8 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
     // MARK: - رویدادهای ژئوفنس
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        if region.identifier.hasPrefix("p"), ud.double(forKey: K.enterAt) > 0 { clearEnter() }   // قبل از ۳۰ دقیقه رفت: ورود خودکار ثبت نمی‌شود
+        BackgroundJobs.wake()
         guard region.identifier.hasPrefix("p"), ud.bool(forKey: K.autoOut) else { return }
         beginBG()
         Task {
@@ -196,10 +214,14 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
         // برگشتنِ کارمند به داخل محدوده، شمارش ۳۰ دقیقه را باطل می‌کند
         if state == .inside, region.identifier.hasPrefix("p"), ud.double(forKey: K.exitAt) > 0 { clearExit() }
+        if state == .inside, region.identifier.hasPrefix("p") { considerAutoIn(region) }
     }
 
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard region.identifier.hasPrefix("p"), ud.double(forKey: K.exitAt) > 0 else { return }
+        guard region.identifier.hasPrefix("p") else { return }
+        BackgroundJobs.wake()
+        considerAutoIn(region)
+        guard ud.double(forKey: K.exitAt) > 0 else { return }
         clearExit()          // قبل از ۳۰ دقیقه برگشت: هیچ خروجی ثبت نمی‌شود
         beginBG()
         request(.enter)
@@ -216,12 +238,19 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
         guard let loc = locations.last else { return }
         if manager === keepAlive {
             dueCheckIfNeeded()
+            dueEnterIfNeeded()
             return
         }
         let ps = pending
         pending.removeAll()
-        for p in ps { send(p, loc) }
-        if ps.isEmpty { dueCheckIfNeeded() }   // تغییر قابل‌توجه موقعیت
+        for p in ps {
+            if p == .autoIn { finishAutoIn(loc) } else { send(p, loc) }
+        }
+        if ps.isEmpty {   // تغییر قابل‌توجه موقعیت
+            dueCheckIfNeeded()
+            dueEnterIfNeeded()
+            BackgroundJobs.wake()
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -229,6 +258,12 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
         let ps = pending
         pending.removeAll()
         for p in ps {
+            if p == .autoIn {
+                enterInFlight = false
+                retryEnter(after: 5 * 60)
+                endBG()
+                continue
+            }
             if p == .check {
                 checkInFlight = false
                 if ud.integer(forKey: K.tries) == 0 {
@@ -248,6 +283,7 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
         case .exit: event = "exit"; at = ud.double(forKey: K.exitAt)
         case .enter: event = "enter"
         case .check: event = "check"; at = ud.double(forKey: K.exitAt)
+        case .autoIn: return
         }
         var body: [String: Any] = [
             "latitude": loc.coordinate.latitude,
@@ -327,7 +363,125 @@ final class GeofenceService: NSObject, CLLocationManagerDelegate {
         exitTimer?.invalidate()
         exitTimer = nil
         checkInFlight = false
-        keepAlive.stopUpdatingLocation()
+        stopKeepAliveIfIdle()
+        endBG()
+    }
+
+    private func stopKeepAliveIfIdle() {
+        if ud.double(forKey: K.exitAt) == 0 && ud.double(forKey: K.enterAt) == 0 { keepAlive.stopUpdatingLocation() }
+    }
+
+    // MARK: - ورود خودکار (۳۰ دقیقه حضور در محدوده)
+
+    /// کارمند به محدوده‌ی پروژه رسید: اگر مدیر «ورود خودکار» را فعال کرده و امروز هنوز تردیدی ثبت نشده، شمارش ۳۰ دقیقه شروع می‌شود
+    private func considerAutoIn(_ region: CLRegion) {
+        guard ud.bool(forKey: K.autoIn), ud.bool(forKey: K.noLogToday), ud.double(forKey: K.enterAt) == 0,
+              let c = region as? CLCircularRegion else { return }
+        ud.set(Date().timeIntervalSince1970, forKey: K.enterAt)
+        ud.set(Int(c.identifier.dropFirst()) ?? 0, forKey: K.enterProject)
+        ud.set("\(c.center.latitude),\(c.center.longitude),\(c.radius)", forKey: K.enterFence)
+        ud.set(0, forKey: K.enterTries)
+        scheduleEnterCheck()
+    }
+
+    private func scheduleEnterCheck() {
+        let at = ud.double(forKey: K.enterAt)
+        guard at > 0 else { return }
+        keepAlive.startUpdatingLocation()
+        let due = Date(timeIntervalSince1970: at + Config.autoSeconds + 20)
+        scheduleEnterTimer(at: max(due, Date().addingTimeInterval(3)))
+    }
+
+    private func scheduleEnterTimer(at date: Date) {
+        enterTimer?.invalidate()
+        let t = Timer(fire: date, interval: 0, repeats: false) { [weak self] _ in self?.runEnterCheck() }
+        RunLoop.main.add(t, forMode: .common)
+        enterTimer = t
+    }
+
+    private func dueEnterIfNeeded() {
+        let at = ud.double(forKey: K.enterAt)
+        guard at > 0, Date().timeIntervalSince1970 >= at + Config.autoSeconds else { return }
+        runEnterCheck()
+    }
+
+    private func runEnterCheck() {
+        guard ud.bool(forKey: K.autoIn), ud.double(forKey: K.enterAt) > 0 else { clearEnter(); return }
+        guard !enterInFlight else { return }
+        enterInFlight = true
+        beginBG()
+        request(.autoIn)
+    }
+
+    private func retryEnter(after seconds: TimeInterval) {
+        let n = ud.integer(forKey: K.enterTries) + 1
+        ud.set(n, forKey: K.enterTries)
+        if n >= 8 { clearEnter(); return }
+        scheduleEnterTimer(at: Date().addingTimeInterval(seconds))
+    }
+
+    private func clearEnter() {
+        ud.removeObject(forKey: K.enterAt)
+        ud.removeObject(forKey: K.enterProject)
+        ud.removeObject(forKey: K.enterFence)
+        ud.removeObject(forKey: K.enterTries)
+        enterTimer?.invalidate()
+        enterTimer = nil
+        enterInFlight = false
+        stopKeepAliveIfIdle()
+        endBG()
+    }
+
+    /// ۳۰ دقیقه گذشته؛ اگر هنوز داخل محدوده است، ورود با ساعتِ رسیدن ثبت می‌شود (سرور تصمیم نهایی را می‌گیرد)
+    private func finishAutoIn(_ loc: CLLocation) {
+        let at = ud.double(forKey: K.enterAt)
+        let parts = (ud.string(forKey: K.enterFence) ?? "").split(separator: ",").compactMap { Double($0) }
+        guard at > 0, parts.count == 3 else { clearEnter(); return }
+        let acc = loc.horizontalAccuracy
+        if acc < 0 || acc > 150 {      // موقعیت نامطمئن؛ بعداً دوباره
+            enterInFlight = false
+            retryEnter(after: 5 * 60)
+            endBG()
+            return
+        }
+        let dist = loc.distance(from: CLLocation(latitude: parts[0], longitude: parts[1]))
+        if dist > parts[2] + 50 {      // بیرون رفته؛ ورودی ثبت نمی‌شود
+            clearEnter()
+            return
+        }
+        var body: JSON = [
+            "type": "check_in", "auto": true,
+            "latitude": loc.coordinate.latitude, "longitude": loc.coordinate.longitude,
+            "accuracy": acc, "occurred_at": GeofenceService.format(at),
+        ]
+        let pid = ud.integer(forKey: K.enterProject)
+        if pid > 0 { body["project_id"] = pid }
+        Task {
+            let r = await API.call("employee_attendance.php", method: "POST", body: body)
+            await MainActor.run { self.handleAutoIn(r, at: at) }
+        }
+    }
+
+    private func handleAutoIn(_ r: APIResult?, at: TimeInterval) {
+        enterInFlight = false
+        guard let r = r else {          // اینترنت نبود؛ بعداً دوباره
+            retryEnter(after: 5 * 60)
+            endBG()
+            return
+        }
+        if r.status >= 200 && r.status < 300 && (r.json["success"] as? Bool) == true {
+            let hm = String(GeofenceService.format(at).dropFirst(11).prefix(5))
+            notify("✅ ورود خودکار ثبت شد", "ساعت \(hm) به محدوده‌ی کار رسیدید و ورود با همان ساعت ثبت شد.")
+            ud.set(false, forKey: K.noLogToday)
+            ud.set(false, forKey: K.autoIn)
+            ud.set(true, forKey: K.checkedIn)
+            Task {
+                await AppState.shared.reload()
+                await RouteTracker.shared.refresh()
+            }
+            NotificationCenter.default.post(name: .presinoReload, object: nil)
+        }
+        clearEnter()                    // رد شدن (غیرفعال، تکراری، ...) هم شمارش را پایان می‌دهد
         endBG()
     }
 

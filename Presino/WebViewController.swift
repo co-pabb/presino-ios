@@ -18,7 +18,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
       var t = await r.text();
       try {
         var j = JSON.parse(t);
-        if (j && j.success && j.token) { return { ok: true, token: j.token }; }
+        if (j && j.success && j.token) { return { ok: true, token: j.token, role: j.role || '', uid: j.user_id || 0 }; }
         return { ok: false, definite: true };
       } catch (e) {
         return { ok: false, definite: r.status !== 500 };
@@ -60,6 +60,24 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         NotificationCenter.default.addObserver(self, selector: #selector(reloadPage), name: .presinoReload, object: nil)
     }
 
+    /// باز کردن یک صفحه‌ی مشخص از سایت (از صفحه‌ی اول نیتیو یا لمس اعلان)
+    func open(path: String) {
+        loadViewIfNeeded()
+        guard let url = URL(string: Config.webBase + path) else { return }
+        webView.load(URLRequest(url: url))
+    }
+
+    private var lastResync = Date.distantPast
+
+    /// توکن برنامه باطل شده ولی نشست وب هنوز معتبر است: توکن تازه گرفته می‌شود (حداکثر هر ۳۰ ثانیه یک‌بار)
+    func resync() {
+        loadViewIfNeeded()
+        if Date().timeIntervalSince(lastResync) < 30 { return }
+        lastResync = Date()
+        lastTokenAt = Date.distantPast
+        syncToken()
+    }
+
     @objc private func reloadPage() {
         if webView.url?.host == Config.host {
             webView.reload()
@@ -77,8 +95,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         let scheme = (url.scheme ?? "").lowercased()
         if ["http", "https", "about", "blob", "data", "file"].contains(scheme) {
             if url.host == Config.host, url.path.lowercased().contains("logout") {
-                Session.token = nil
                 GeofenceService.shared.stopAll()
+                Session.clear()
             }
             decisionHandler(.allow)
             return
@@ -148,11 +166,19 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         webView.callAsyncJavaScript(Self.tokenJS, arguments: [:], in: nil, in: .page) { result in
             guard case .success(let value) = result, let d = value as? [String: Any] else { return }
             if (d["ok"] as? Bool) == true, let t = d["token"] as? String {
+                let role = d["role"] as? String ?? ""
+                let uid = (d["uid"] as? NSNumber)?.intValue ?? 0
+                let changedUser = uid != 0 && uid != Session.userId
+                if changedUser { OfflineQueue.shared.clearAll() }
+                if !role.isEmpty { Session.role = role }
+                if uid != 0 { Session.userId = uid }
+                let wasLoggedIn = Session.token != nil
                 Session.token = t
                 GeofenceService.shared.start()
+                if wasLoggedIn { AppState.shared.foreground() }
             } else if (d["definite"] as? Bool) == true {
-                Session.token = nil
                 GeofenceService.shared.stopAll()
+                Session.token = nil
             }
         }
     }
