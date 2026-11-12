@@ -17,7 +17,7 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build (unsigned)
+      - name: Build device (unsigned)
         run: |
           xcodebuild \
             -project Presino.xcodeproj \
@@ -36,7 +36,51 @@ jobs:
           zip -qry Presino-unsigned.ipa Payload
           ls -la Presino-unsigned.ipa
 
+      - name: Check ipa contents
+        run: |
+          APP=Payload/Presino.app
+          echo "--- Info.plist ---"
+          plutil -p "$APP/Info.plist" | tee report-plist.txt
+          for k in UIBackgroundModes NSLocationAlwaysAndWhenInUseUsageDescription NSLocationWhenInUseUsageDescription NSCameraUsageDescription CFBundleIdentifier; do
+            grep -q "$k" report-plist.txt && echo "OK  $k" || { echo "MISSING $k"; exit 1; }
+          done
+          test -f "$APP/Assets.car" && echo "OK  icons (Assets.car)" || { echo "MISSING Assets.car"; exit 1; }
+
       - uses: actions/upload-artifact@v4
         with:
           name: Presino-ipa
           path: Presino-unsigned.ipa
+
+      # --- تست اجرا روی شبیه‌ساز iPhone: اجرا می‌شود؟ ظاهر صفحه‌ی ورود چطور است؟ لاگ خطا ---
+      - name: Run on iPhone simulator
+        continue-on-error: true
+        run: |
+          mkdir -p sim-report
+          xcodebuild -project Presino.xcodeproj -scheme Presino -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim CODE_SIGNING_ALLOWED=NO build
+          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}')
+          echo "Simulator: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Presino.app
+          xcrun simctl privacy "$UDID" grant location-always ir.presino.app || true
+          xcrun simctl privacy "$UDID" grant camera ir.presino.app || true
+          xcrun simctl location "$UDID" set 35.6892,51.3890
+          xcrun simctl launch "$UDID" ir.presino.app
+          sleep 25
+          xcrun simctl io "$UDID" screenshot sim-report/1-after-launch.png
+          sleep 10
+          xcrun simctl io "$UDID" screenshot sim-report/2-after-35s.png
+          xcrun simctl spawn "$UDID" launchctl list | grep ir.presino.app > sim-report/process-alive.txt || echo "PROCESS NOT RUNNING (crashed?)" > sim-report/process-alive.txt
+          cat sim-report/process-alive.txt
+          xcrun simctl spawn "$UDID" log show --last 3m --style compact --predicate 'process == "Presino"' > sim-report/app.log || true
+          ls ~/Library/Logs/DiagnosticReports 2>/dev/null > sim-report/crash-reports.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Presino-simulator-report
+          path: |
+            sim-report
+            report-plist.txt
