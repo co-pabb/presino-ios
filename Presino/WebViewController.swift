@@ -7,6 +7,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private var lastTokenAt = Date.distantPast
     private var lastPath = ""
     private var downloadURL: URL?
+    /// آدرس شروع (تب‌های مدیر: درخواست‌ها، گزارش، …)؛ خالی = صفحه‌ی ورود/خانه‌ی سایت
+    var startPath: String?
 
     // گرفتن توکن برای ارسال موقعیت در پس‌زمینه؛ با همان نشستِ ورودِ صفحه‌ی وب
     private static let tokenJS = """
@@ -56,8 +58,17 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
-        webView.load(URLRequest(url: Config.startURL))
+        if let sp = startPath, let u = URL(string: Config.webBase + sp) {
+            webView.load(URLRequest(url: u))
+        } else {
+            webView.load(URLRequest(url: Config.startURL))
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(reloadPage), name: .presinoReload, object: nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        GeoBridge.shared.webView = webView
     }
 
     /// باز کردن یک صفحه‌ی مشخص از سایت (از صفحه‌ی اول نیتیو یا لمس اعلان)

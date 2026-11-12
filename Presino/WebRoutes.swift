@@ -13,7 +13,7 @@ enum WebRoutes {
         if t.hasPrefix("more:taskOpen:") { return mgr ? "/manager/tasks.php" : "/employee/my_tasks.php" }
         switch t {
         case "tab:0": return nil
-        case "tab:1": return "/employee/requests.php"
+        case "tab:1": return mgr ? "/manager/requests.php" : "/employee/requests.php"
         case "tab:3": return mgr ? "/manager/messages.php" : "/employee/messages.php"
         case "more:payslips": return "/employee/payslip.php"
         case "more:mgrRequests": return "/manager/requests.php"

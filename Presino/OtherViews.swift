@@ -6,15 +6,20 @@ struct HomeRoot: View {
     @ObservedObject var state = AppState.shared
     let openWeb: (String) -> Void
     let openNotifications: () -> Void
+    let openTarget: (String) -> Void
+    let openSettings: () -> Void
 
-    init(openWeb: @escaping (String) -> Void, openNotifications: @escaping () -> Void) {
+    init(openWeb: @escaping (String) -> Void, openNotifications: @escaping () -> Void,
+         openTarget: @escaping (String) -> Void = { _ in }, openSettings: @escaping () -> Void = {}) {
         self.openWeb = openWeb
         self.openNotifications = openNotifications
+        self.openTarget = openTarget
+        self.openSettings = openSettings
     }
 
     var body: some View {
         if state.isManager {
-            ManagerHomeView(openWeb: openWeb, openNotifications: openNotifications)
+            ManagerHomeView(openWeb: openWeb, openNotifications: openNotifications, openTarget: openTarget, openSettings: openSettings)
         } else {
             EmployeeHomeView(openWeb: openWeb, openNotifications: openNotifications)
         }

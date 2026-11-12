@@ -46,20 +46,62 @@ enum Demo {
     }
 
     static func managerHome() -> JSON {
+        func pt(_ id: Int, _ name: String, _ proj: String, _ time: String, _ inside: Bool, _ lat: Double, _ lng: Double) -> JSON {
+            return ["id": id, "name": name, "proj": proj, "time": time, "in": inside, "lat": lat, "lng": lng, "photo": "", "pc": [], "g": "m", "approx": false, "h": 200] as JSON
+        }
+        let points: [JSON] = [
+            pt(1, "علی رضایی", "برج مسکونی نگین", "08:02", true, 35.7001, 51.4012),
+            pt(2, "مریم احمدی", "برج مسکونی نگین", "08:10", true, 35.7005, 51.4019),
+            pt(3, "حسین کریمی", "کارگاه مرکزی", "08:25", true, 35.6712, 51.3705),
+            pt(4, "رضا نوری", "کارگاه مرکزی", "12:30", false, 35.6709, 51.3711),
+        ]
         return [
             "success": true,
             "company_name": "شرکت ساختمانی پارس",
+            "full_name": "محمد مدیری",
             "today_jalali": "۱۴۰۵/۰۸/۲۱",
             "weekday": "پنجشنبه",
+            "server_seconds": 9 * 3600 + 41 * 60 + 7,
             "stats": ["total_employees": 42, "present_now": 31, "absent_now": 11, "pending_requests": 4, "pending_device_requests": 1] as JSON,
-            "present": [
-                ["name": "علی رضایی", "since": "08:02", "place": "برج مسکونی نگین"] as JSON,
-                ["name": "مریم احمدی", "since": "08:10", "place": "پروژه سیار"] as JSON,
-                ["name": "حسین کریمی", "since": "08:25", "place": "کارگاه مرکزی"] as JSON,
+            "map": [
+                "points": points,
+                "projects": [
+                    ["id": 1, "name": "برج مسکونی نگین", "lat": 35.7003, "lng": 51.4015, "city": "تهران", "av": "", "ico": "office"] as JSON,
+                    ["id": 2, "name": "کارگاه مرکزی", "lat": 35.6710, "lng": 51.3708, "city": "تهران", "av": "", "ico": "office"] as JSON,
+                ],
+                "no_loc": 0,
+            ] as JSON,
+            "lists": [
+                "present": ["علی رضایی", "مریم احمدی", "حسین کریمی"],
+                "out": ["رضا نوری"],
+                "absent": ["سارا محمدی", "امیر حسینی"],
+                "leave": ["نگار صادقی"],
+                "mission": ["پیمان فرهادی"],
+            ] as JSON,
+            "people": [
+                ["name": "علی رضایی", "proj": "برج مسکونی نگین", "time": "08:02", "in": true, "id": 1] as JSON,
+                ["name": "مریم احمدی", "proj": "برج مسکونی نگین", "time": "08:10", "in": true, "id": 2] as JSON,
+                ["name": "حسین کریمی", "proj": "کارگاه مرکزی", "time": "08:25", "in": true, "id": 3] as JSON,
+                ["name": "رضا نوری", "proj": "کارگاه مرکزی", "time": "12:30", "in": false, "id": 4] as JSON,
             ],
-            "pending_list": [
-                ["name": "سارا محمدی", "type": "مرخصی", "ago": "۲ ساعت پیش"] as JSON,
-                ["name": "رضا نوری", "type": "اضافه‌کاری", "ago": "دیروز"] as JSON,
+            "sub": ["ended": false, "days": 5] as JSON,
+            "unread_system": 1,
+            "plans_today": [
+                ["icon": "📞", "title": "تماس با تأمین‌کننده میلگرد", "cat_label": "تماس", "remind_label": "۱۰ دقیقه قبل", "time": "14:00", "overdue": false] as JSON,
+            ],
+            "company_tasks_today": [
+                ["id": 5, "title": "بازدید قالب‌بندی طبقه سوم", "meta": "پروژه: برج نگین", "tag": "۱۰:۳۰", "overdue": false] as JSON,
+                ["id": 6, "title": "ثبت گزارش روزانه", "meta": "پروژه: کارگاه مرکزی", "tag": "عقب‌افتاده", "overdue": true] as JSON,
+            ],
+            "activity": [
+                ["name": "حسین کریمی", "meta": "ورود · کارگاه مرکزی", "time": "08:25", "in": true] as JSON,
+                ["name": "رضا نوری", "meta": "خروج · کارگاه مرکزی", "time": "12:30", "in": false] as JSON,
+                ["name": "مریم احمدی", "meta": "ورود خودکار · برج مسکونی نگین", "time": "08:10", "in": true] as JSON,
+            ],
+            "todos": [
+                ["k": "orange", "icon": "doc", "title": "درخواست‌ها", "sub": "مرخصی، اضافه‌کاری، مساعده…", "count": 4, "go": "tab:1"] as JSON,
+                ["k": "sky", "icon": "phone", "title": "تغییر دستگاه", "sub": "منتظر تأیید شما", "count": 1, "go": "tab:1"] as JSON,
+                ["k": "green", "icon": "chat", "title": "پشتیبانی", "sub": "پاسخ جدید تیکت", "count": 0, "go": "more:support"] as JSON,
             ],
             "pending_msg_replies": 1,
             "notifications_unread": 3,
