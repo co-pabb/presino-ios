@@ -11,6 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # اگر فایل update.zip در ریشه‌ی مخزن باشد، قبل از ساخت روی پروژه باز می‌شود (آپلود یک فایل از گوشی کافی است)
+      - name: Apply update.zip (if present)
+        run: |
+          if [ -f update.zip ]; then
+            echo "update.zip found — extracting over project"
+            unzip -o -q update.zip -x '__MACOSX/*' '*.DS_Store' '.github/*'
+            echo "--- files in update.zip ---"
+            unzip -Z1 update.zip | grep -v '/$' || true
+          else
+            echo "no update.zip"
+          fi
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
