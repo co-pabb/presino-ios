@@ -1,0 +1,6 @@
+build/
+Presino.xcodeproj/
+Payload/
+*.ipa
+.DS_Store
+xcuserdata/
