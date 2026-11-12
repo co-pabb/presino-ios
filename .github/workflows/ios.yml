@@ -59,7 +59,8 @@ jobs:
           xcodebuild -project Presino.xcodeproj -scheme Presino -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build-sim CODE_SIGNING_ALLOWED=NO build
-          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}')
+          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone.*Pro Max" | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}')
+          if [ -z "$UDID" ]; then UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}'); fi
           echo "Simulator: $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
@@ -72,6 +73,15 @@ jobs:
           xcrun simctl io "$UDID" screenshot sim-report/1-after-launch.png
           sleep 10
           xcrun simctl io "$UDID" screenshot sim-report/2-after-35s.png
+          # صفحه‌های داخلی با داده‌ی نمونه (حالت نمایشی فقط شبیه‌ساز): خانه‌ی کارمند، اعلان‌ها، تنظیمات، خانه‌ی مدیر
+          for combo in "employee 0 3-employee-home" "employee 2 4-notifications" "employee 3 5-settings" "manager 0 6-manager-home" "manager 3 7-manager-settings"; do
+            set -- $combo
+            xcrun simctl terminate "$UDID" ir.presino.app || true
+            sleep 2
+            xcrun simctl launch "$UDID" ir.presino.app -PresinoDemo "$1" -PresinoTab "$2"
+            sleep 12
+            xcrun simctl io "$UDID" screenshot "sim-report/$3.png"
+          done
           xcrun simctl spawn "$UDID" launchctl list | grep ir.presino.app > sim-report/process-alive.txt || echo "PROCESS NOT RUNNING (crashed?)" > sim-report/process-alive.txt
           cat sim-report/process-alive.txt
           xcrun simctl spawn "$UDID" log show --last 3m --style compact --predicate 'process == "Presino"' > sim-report/app.log || true
