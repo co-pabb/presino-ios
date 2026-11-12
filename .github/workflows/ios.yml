@@ -74,7 +74,7 @@ jobs:
           sleep 10
           xcrun simctl io "$UDID" screenshot sim-report/2-after-35s.png
           # صفحه‌های داخلی با داده‌ی نمونه (حالت نمایشی فقط شبیه‌ساز): خانه‌ی کارمند، اعلان‌ها، تنظیمات، خانه‌ی مدیر
-          for combo in "employee 0 3-employee-home" "employee 2 4-notifications" "employee 3 5-settings" "manager 0 6-manager-home" "manager 3 7-manager-settings"; do
+          for combo in "employee 0 3-employee-home" "employee 2 4-notifications" "employee 3 5-settings" "manager 0 6-manager-home"; do
             set -- $combo
             xcrun simctl terminate "$UDID" ir.presino.app || true
             sleep 2
@@ -82,6 +82,14 @@ jobs:
             sleep 12
             xcrun simctl io "$UDID" screenshot "sim-report/$3.png"
           done
+          # خانه‌ی مدیر در تم تاریک
+          xcrun simctl ui "$UDID" appearance dark || true
+          xcrun simctl terminate "$UDID" ir.presino.app || true
+          sleep 2
+          xcrun simctl launch "$UDID" ir.presino.app -PresinoDemo manager -PresinoTab 0
+          sleep 15
+          xcrun simctl io "$UDID" screenshot sim-report/7-manager-home-dark.png
+          xcrun simctl ui "$UDID" appearance light || true
           xcrun simctl spawn "$UDID" launchctl list | grep ir.presino.app > sim-report/process-alive.txt || echo "PROCESS NOT RUNNING (crashed?)" > sim-report/process-alive.txt
           cat sim-report/process-alive.txt
           xcrun simctl spawn "$UDID" log show --last 3m --style compact --predicate 'process == "Presino"' > sim-report/app.log || true
